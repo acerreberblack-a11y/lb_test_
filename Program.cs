@@ -236,8 +236,16 @@ namespace LandocsRobot
                     // Проверяем, что arrayPdfFiles не пуст
                     if (arrayPdfFiles == null || arrayPdfFiles.Length == 0)
                     {
-                        Console.WriteLine("Array of files is empty or null.");
-                        return;
+                        Log(LogLevel.Info, "Файлы для обработки не найдены. Запускаю Landocs и перехожу во вкладку [Сообщения].");
+                        try
+                        {
+                            OpenLandocsAndNavigateToMessages();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log(LogLevel.Error, $"Не удалось выполнить переход во вкладку [Сообщения]: {ex.Message}");
+                        }
+                        continue;
                     }
 
                     // Проверяем, все ли файлы содержат "+"
@@ -5425,6 +5433,59 @@ namespace LandocsRobot
 
                 // Бросаем исключение, чтобы завершить работу приложения
                 throw new ApplicationException($"Критическая ошибка: {ex.Message}", ex);
+            }
+        }
+
+        static void OpenLandocsAndNavigateToMessages()
+        {
+            try
+            {
+                Log(LogLevel.Info, "Запускаю Landocs для перехода во вкладку [Сообщения].");
+
+                string customFile = GetConfigValue("ConfigLandocsCustomFile");
+                string landocsProfileFolder = GetConfigValue("ConfigLandocsFolder");
+                MoveCustomProfileLandocs(customFile, landocsProfileFolder);
+
+                string appLandocsPath = GetConfigValue("AppLandocsPath");
+                var appElement = LaunchAndFindWindow(appLandocsPath, "_robin_landocs (Мой LanDocs) - Избранное - LanDocs", 300);
+
+                if (appElement == null)
+                {
+                    throw new Exception("Окно Landocs не найдено при переходе во вкладку [Сообщения].");
+                }
+
+                Thread.Sleep(5000);
+
+                string xpathHomeTab = "Pane[3]/Tab/TabItem[1]";
+                var homeTab = FindElementByXPath(appElement, xpathHomeTab, 60);
+                if (homeTab != null)
+                {
+                    ClickElementWithMouse(homeTab);
+                    Log(LogLevel.Info, "Открыта вкладка [Главная] перед переходом в [Сообщения].");
+                }
+                else
+                {
+                    Log(LogLevel.Warning, "Не удалось найти вкладку [Главная] перед переходом в [Сообщения].");
+                }
+
+                string xpathMessagesButton = "Pane[1]/Pane/Pane[1]/Pane/Pane/Button[1]";
+                var messagesButton = FindElementByXPath(appElement, xpathMessagesButton, 60);
+                if (messagesButton == null)
+                {
+                    throw new Exception("Элемент [Сообщения] в навигационном меню не найден.");
+                }
+
+                if (!TryInvokeElement(messagesButton))
+                {
+                    ClickElementWithMouse(messagesButton);
+                }
+
+                Log(LogLevel.Info, "Вкладка [Сообщения] успешно открыта.");
+            }
+            catch (Exception ex)
+            {
+                Log(LogLevel.Error, $"Ошибка при переходе во вкладку [Сообщения]: {ex.Message}");
+                throw;
             }
         }
 
